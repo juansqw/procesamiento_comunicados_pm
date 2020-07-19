@@ -49,3 +49,22 @@ ggsave(
   width = 9,
   dpi = 350)
 
+
+ggsave(
+  here::here("visualizaciones", "plt_poins_elasticidad_sectore.png"),
+  plt_points_elasticidad_sectores,
+  height = 5,
+  width = 8,
+  dpi = 350)
+
+
+ggsave(
+  here::here("visualizaciones", "plt_density_elasticidad_sectores.png"),
+  plt_desnity_sector_elasticidad,
+  height = 5,
+  width = 8,
+  dpi = 350)
+
+ggsave("visualizaciones/plt_indicador_hist.png", plt_hist_indicador_elasticidad,
+       height = 5, width = 8, dpi = 350)
+
