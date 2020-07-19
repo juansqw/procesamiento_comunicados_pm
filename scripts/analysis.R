@@ -37,7 +37,6 @@ comunicados_entorno <- readxl::read_excel(
   here::here("data", "comunicados_entorno.xlsx"), 
   sheet = "comunicados")
 
-
 comunicados_entorno <- comunicados_entorno %>% 
   mutate(date = lubridate::ymd(paste(year + 2000, mes, "01", sep = "-"))) %>% 
   select(date, year, mes, value, paragraph, entorno) %>% 
@@ -203,11 +202,6 @@ indicador_long <- indicador %>%
 indicador_incertidumbre <- indicador %>% 
   select(Date, indicador_Incertidumbre)
 
-indicador_long %>% 
-  ggplot(aes(x = Date, y = sentiments, fill = sectores)) +
-  geom_col()
-
-
 
 # Elasticidades -----------------------------------------------------------
 
@@ -236,9 +230,9 @@ alasticidad_exp_sent <- comunicados_sentiments %>%
   mutate(
     across(c(-date, -WordCount), rescale),
     across(c(-date, -WordCount), ~c(NA, diff(log(.)))),
-    across(GI:LM, ~(./inflacion_interanual), .names = '{col}_inflacion_elast'),
-    across(GI:LM, ~(./tc_interanual), .names = '{col}_tc_elast'),
-    across(GI:LM, ~(./pib_diciembre2), .names = '{col}_pib_elast')
+    across(GI:LM, ~(inflacion_interanual/.), .names = '{col}_inflacion_elast'),
+    across(GI:LM, ~(tc_interanual/.), .names = '{col}_tc_elast'),
+    across(GI:LM, ~(pib_diciembre2/.), .names = '{col}_pib_elast')
   ) %>% select(date, contains("elast"))
 
 xlsx::write.xlsx(as.data.frame(elasticidad_indicador_incertidumbre_expectativas),
@@ -248,8 +242,7 @@ xlsx::write.xlsx(as.data.frame(elasticidad_indicador_incertidumbre_expectativas)
 # Elasticidades indicador de incertidumbre y expectativas 
 
 elasticidad_indicador_incertidumbre_expectativas <-  indicador %>% 
-  
-  left_join(
+    left_join(
     select(eem, date = periodo, inflacion_interanual,
            tc_interanual, pib_diciembre2, tc_interanual_v)
   ) %>%
@@ -258,9 +251,9 @@ elasticidad_indicador_incertidumbre_expectativas <-  indicador %>%
   mutate(
     across(-date, rescale),
     across(-date, ~c(NA, diff(log(.)))),
-    across(geopolitica:indicador_incertidumbre, ~(./inflacion_interanual), .names = '{col}_inflacion_elast'),
-    across(geopolitica:indicador_incertidumbre, ~(./tc_interanual), .names = '{col}_tc_elast'),
-    across(geopolitica:indicador_incertidumbre, ~(./pib_diciembre2), .names = '{col}_pib_elast')
+    across(geopolitica:indicador_incertidumbre, ~(inflacion_interanual/.), .names = '{col}_inflacion_elast'),
+    across(geopolitica:indicador_incertidumbre, ~(tc_interanual/.), .names = '{col}_tc_elast'),
+    across(geopolitica:indicador_incertidumbre, ~(pib_diciembre2/.), .names = '{col}_pib_elast')
   ) %>% select(date, contains("elast"))
 
 
@@ -269,6 +262,61 @@ xlsx::write.xlsx(as.data.frame(elasticidad_indicador_incertidumbre_expectativas)
                  row.names = FALSE, showNA = FALSE)
 
 
+# visualizaciones elasticidades -------------------------------------------
+
+# adecuando la data según sectores
+sector_expectativa <- elasticidad_indicador_incertidumbre_expectativas %>% 
+  pivot_longer(cols = -date, 
+               names_to = c("sector", "variable_expectativa"),
+               #names_sufix = '_elast',
+               values_to = "elasticidad",
+               names_pattern = '(geopolitica|mercados|petroleo|negocios|indicador_incertidumbre)_(.*$)') %>% 
+  mutate(variable_expectativa = str_remove(variable_expectativa, "_elast"),
+         variable_expectativa = recode(variable_expectativa,
+                                       "inflacion" = "Inflación",
+                                       "pib" = "PIB",
+                                       "tc" = "Tipo de cambio")) %>% 
+  filter(!is.na(elasticidad)) 
+  
+  #
+  (plt_points_elasticidad_sectores <- sector_expectativa %>% 
+    filter(sector != "indicador_incertidumbre", elasticidad < quantile(elasticidad, 0.9),
+           elasticidad > quantile(elasticidad, 0.1)) %>% 
+  ggplot(aes(y = elasticidad, x = variable_expectativa)) +
+  geom_jitter(width = 0.05, alpha = 0.4, color = "midnightblue") +
+  #coord_cartesian(ylim = c(-2, 3)) +
+  facet_wrap(~str_to_title(sector)) +
+  theme_light() +
+  labs(x = "\nVariable de expectativa", y = "Elasticidad"))
+  
+  (plt_hist_elasticidad_sectores <- sector_expectativa %>% 
+    filter(sector != "indicador_incertidumbre", elasticidad < quantile(elasticidad, 0.9),
+           elasticidad > quantile(elasticidad, 0.1)) %>% 
+    ggplot(aes(x = elasticidad, fill = variable_expectativa)) +
+    geom_histogram(position = "identity", alpha = 0.4) +
+    facet_wrap(~sector) +
+    theme_light() +
+    labs(x = "Elasticidad", y = "Frecuencia", fill = NULL) +
+    theme(legend.position = "bottom"))
+  
+ (plt_desnity_sector_elasticidad <- sector_expectativa %>% 
+    filter(sector != "indicador_incertidumbre", elasticidad < quantile(elasticidad, 0.9),
+           elasticidad > quantile(elasticidad, 0.1)) %>%
+    ggplot(aes(x = elasticidad, y = variable_expectativa)) +
+    #scale_y_reverse() +
+    ggridges::geom_density_ridges(fill = "midnightblue", alpha = 0.6) + 
+    facet_wrap(~str_to_title(sector)) +
+    theme_light() +
+    labs(y = NULL, x = "Elasticidad"))
+  
+
+(plt_hist_indicador_elasticidad <- sector_expectativa %>% 
+  filter(sector == "indicador_incertidumbre", elasticidad < quantile(elasticidad, 0.9),
+         elasticidad > quantile(elasticidad, 0.1)) %>% 
+  ggplot(aes(x = elasticidad)) +
+  geom_histogram(binwidth = 0.2, alpha = 0.6, fill = "midnightblue") +
+  theme_light() +
+  labs(y = "Frecuencia", x = "Elasticidad"))
 
 
 
