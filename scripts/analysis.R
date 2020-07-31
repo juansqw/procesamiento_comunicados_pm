@@ -2,6 +2,7 @@
 # Paquetes ----------------------------------------------------------------
 
 library(tidyverse)
+library(tidytext)
 library(janitor)
 library(here)
 library(tm)
@@ -200,7 +201,7 @@ indicador_long <- indicador %>%
   )
 
 indicador_incertidumbre <- indicador %>% 
-  select(Date, indicador_Incertidumbre)
+  select(date, indicador_Incertidumbre)
 
 
 # Elasticidades -----------------------------------------------------------
@@ -318,5 +319,10 @@ sector_expectativa <- elasticidad_indicador_incertidumbre_expectativas %>%
   theme_light() +
   labs(y = "Frecuencia", x = "Elasticidad"))
 
+# ---- Guarda plots ----
+
+save(plt_bigram_entorno, plt_bigram_year, plt_desnity_sector_elasticidad, plt_hist_elasticidad_sectores, plt_hist_indicador_elasticidad, plt_monogram, plt_palablas_comunicados, 
+     plt_palablas_comunicados_smooth, plt_points_elasticidad_sectores, plt_sentiment_entorno,plt_tf_idf,
+     file = "plots_pm.RDS")
 
 
